@@ -49,7 +49,7 @@ pipeline {
                             #sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
 
                             echo "Deploying new version with Helm..."
-                            helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml --set deployment.imageVersion=${params.appVersion}.
+                            helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml --set deployment.imageVersion=${params.appVersion} .
                         """
                     }
                 }
