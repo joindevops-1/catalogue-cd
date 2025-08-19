@@ -47,7 +47,6 @@ pipeline {
                         kubectl get nodes
 
                         echo "Preparing Helm deployment..."
-                        cd helm
                         sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
 
                         echo "Deploying new version with Helm..."
