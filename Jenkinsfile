@@ -19,7 +19,7 @@ pipeline {
     }
     // Build
     stages {
-        stage('Deploy') {
+        /* stage('Deploy') {
             steps {
                 script {
                     withAWS(credentials: 'aws-creds', region: 'us-east-1') {
@@ -30,6 +30,51 @@ pipeline {
                             sed -i "s/IMAGE_VERSION/${params.appVersion}/g" values-${params.deploy_to}.yaml
                             helm upgrade --install $COMPONENT -f values-${params.deploy_to}.yaml -n $PROJECT .
                         """
+                    }
+                }
+            }
+        } */
+        stage('Deploy') {
+            steps {
+                script{
+                    withAWS(region: 'us-east-1', credentials: "aws-creds-${environment}") {
+                        try {
+                    sh """
+                        echo "Setting up kubeconfig..."
+                        aws eks update-kubeconfig --region ${REGION} --name "$PROJECT-${params.deploy_to}"
+
+                        echo "Checking cluster nodes..."
+                        kubectl get nodes
+
+                        echo "Preparing Helm deployment..."
+                        cd helm
+                        sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
+
+                        echo "Deploying new version with Helm..."
+                        helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml .
+                    """
+                } catch (err) {
+                    echo "Helm upgrade failed. Attempting rollback..."
+
+                    // Rollback to previous version
+                    sh """
+                        helm rollback ${COMPONENT} -n ${PROJECT}
+                        sleep 30  # Wait for pods to stabilize
+                    """
+
+                    // Check rollout status after rollback
+                    def rolloutStatus = sh(
+                        script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
+                        returnStdout: true
+                    ).trim()
+
+                    if (rolloutStatus.contains("successfully rolled out")) {
+                        echo "Rollback succeeded. But pipeline will fail to notify issue with new release."
+                        error("New deployment failed, rollback successful. Please check the new version.")
+                    } else {
+                        error("Rollback also failed. Previous version is not running.")
+                    }
+                }
                     }
                 }
             }
