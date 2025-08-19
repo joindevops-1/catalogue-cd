@@ -63,7 +63,7 @@ pipeline {
                             script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
                             returnStdout: true
                         ).trim()
-
+                        echo "status: $rolloutStatus"
                         if (rolloutStatus.contains("successfully rolled out")) {
                             echo "Deployment success"
                         } else {
