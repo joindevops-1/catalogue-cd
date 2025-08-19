@@ -60,7 +60,7 @@ pipeline {
                 script{
                     withAWS(region: 'us-east-1', credentials: "aws-creds") {
                         def rolloutStatus = sh(
-                            script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
+                            script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} --timeout=120s || echo FAILED",
                             returnStdout: true
                         ).trim()
                         echo "status: $rolloutStatus"
