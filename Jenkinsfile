@@ -34,46 +34,54 @@ pipeline {
                 }
             }
         } */
-        stage('Deploy') {
+        stage('Deploy'){
             steps {
                 script{
                     withAWS(region: 'us-east-1', credentials: "aws-creds") {
-                        try {
-                    sh """
-                        echo "Setting up kubeconfig..."
-                        aws eks update-kubeconfig --region ${REGION} --name "$PROJECT-${params.deploy_to}"
+                        sh """
+                            echo "Setting up kubeconfig..."
+                            aws eks update-kubeconfig --region ${REGION} --name "$PROJECT-${params.deploy_to}"
 
-                        echo "Checking cluster nodes..."
-                        kubectl get nodes
+                            echo "Checking cluster nodes..."
+                            kubectl get nodes
 
-                        echo "Preparing Helm deployment..."
-                        sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
+                            echo "Preparing Helm deployment..."
+                            #sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
 
-                        echo "Deploying new version with Helm..."
-                        helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml .
-                    """
-                } catch (err) {
-                    echo "Helm upgrade failed. Attempting rollback..."
-
-                    // Rollback to previous version
-                    sh """
-                        helm rollback ${COMPONENT} -n ${PROJECT}
-                        sleep 30  # Wait for pods to stabilize
-                    """
-
-                    // Check rollout status after rollback
-                    def rolloutStatus = sh(
-                        script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
-                        returnStdout: true
-                    ).trim()
-
-                    if (rolloutStatus.contains("successfully rolled out")) {
-                        echo "Rollback succeeded. But pipeline will fail to notify issue with new release."
-                        error("New deployment failed, rollback successful. Please check the new version.")
-                    } else {
-                        error("Rollback also failed. Previous version is not running.")
+                            echo "Deploying new version with Helm..."
+                            helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml --set deployment.imageVersion=${params.appVersion}.
+                        """
                     }
                 }
+            }
+        }
+        stage('check status'){
+            steps {
+                script{
+                    withAWS(region: 'us-east-1', credentials: "aws-creds") {
+                        def rolloutStatus = sh(
+                            script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
+                            returnStdout: true
+                        ).trim()
+
+                        if (rolloutStatus.contains("successfully rolled out")) {
+                            echo "Deployment success"
+                        } else {
+                            sh """
+                                helm rollback ${COMPONENT} -n ${PROJECT}
+                                sleep 30
+                            """
+                            def rolloutStatus = sh(
+                                script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
+                                returnStdout: true
+                            ).trim()
+                            if (rolloutStatus.contains("successfully rolled out")) {
+                                error "Deployment Failed, Rollback success."
+                            }
+                            else{
+                                error "Deployment Failed, Rollback Failed. Emergency"
+                            }
+                        }
                     }
                 }
             }
