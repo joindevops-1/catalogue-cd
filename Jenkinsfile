@@ -37,7 +37,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 script{
-                    withAWS(region: 'us-east-1', credentials: "aws-creds-${environment}") {
+                    withAWS(region: 'us-east-1', credentials: "aws-creds") {
                         try {
                     sh """
                         echo "Setting up kubeconfig..."
