@@ -29,7 +29,7 @@ spec:
         image: "{{ .Values.deployment.imageURL}}:{{ .Values.deployment.imageVersion }}"
         resources:
           requests:
-            cpu: "50m"
+            cpu: "500000m"
             memory: "128Mi"
           limits:
             cpu: "100m"
