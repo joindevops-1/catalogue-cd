@@ -71,11 +71,11 @@ pipeline {
                                 helm rollback ${COMPONENT} -n ${PROJECT}
                                 sleep 30
                             """
-                            def rolloutStatus = sh(
+                            def rollbackStatus = sh(
                                 script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} || echo FAILED",
                                 returnStdout: true
                             ).trim()
-                            if (rolloutStatus.contains("successfully rolled out")) {
+                            if (rollbackStatus.contains("successfully rolled out")) {
                                 error "Deployment Failed, Rollback success."
                             }
                             else{
