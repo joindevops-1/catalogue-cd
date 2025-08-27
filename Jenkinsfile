@@ -19,7 +19,32 @@ pipeline {
     }
     // Build
     stages {
-        /* stage('Deploy') {
+        stage('Check Status'){
+            steps{
+                script{
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        def deploymentStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/catalogue --timeout=30s -n $PROJECT || echo FAILED").trim()
+                        if (deploymentStatus.contains("successfully rolled out")) {
+                            echo "Deployment is success"
+                        } else {
+                            sh """
+                                helm rollback $COMPONENT -n $PROJECT
+                                sleep 20
+                            """
+                            def rollbackStatus = sh(returnStdout: true, script: "kubectl rollout status deployment/catalogue --timeout=30s -n $PROJECT || echo FAILED").trim()
+                            if (rollbackStatus.contains("successfully rolled out")) {
+                                error "Deployment is Failure, Rollback Success"
+                            }
+                            else{
+                                error "Deployment is Failure, Rollback Failure. Application is not running"
+                            }
+                        }
+
+                    }
+                }
+            }
+        }
+        stage('Deploy') {
             steps {
                 script {
                     withAWS(credentials: 'aws-creds', region: 'us-east-1') {
@@ -33,55 +58,44 @@ pipeline {
                     }
                 }
             }
-        } */
-        stage('Deploy'){
-            steps {
+        }
+
+        
+        // API Testing
+        stage('Functional Testing'){
+            when{
+                expression { params.deploy_to = "dev" }
+            }
+             steps{
                 script{
-                    withAWS(region: 'us-east-1', credentials: "aws-creds") {
-                        sh """
-                            echo "Setting up kubeconfig..."
-                            aws eks update-kubeconfig --region ${REGION} --name "$PROJECT-${params.deploy_to}"
-
-                            echo "Checking cluster nodes..."
-                            kubectl get nodes
-
-                            echo "Preparing Helm deployment..."
-                            #sed -i 's/IMAGE_VERSION/${params.appVersion}/g' values-${params.deploy_to}.yaml
-
-                            echo "Deploying new version with Helm..."
-                            helm upgrade --install ${COMPONENT} -n ${PROJECT} -f values-${params.deploy_to}.yaml --set deployment.imageVersion=${params.appVersion} .
-                        """
-                    }
+                    echo "Run functional test cases"
                 }
             }
         }
-        stage('check status'){
-            steps {
+        // All components testing
+        stage('Integration Testing'){
+            when{
+                expression { params.deploy_to = "qa" }
+            }
+             steps{
                 script{
-                    withAWS(region: 'us-east-1', credentials: "aws-creds") {
-                        def rolloutStatus = sh(
-                            script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} --timeout=120s || echo FAILED",
-                            returnStdout: true
-                        ).trim()
-                        echo "status: $rolloutStatus"
-                        if (rolloutStatus.contains("successfully rolled out")) {
-                            echo "Deployment success"
-                        } else {
-                            sh """
-                                helm rollback ${COMPONENT} -n ${PROJECT}
-                                sleep 30
-                            """
-                            def rollbackStatus = sh(
-                                script: "kubectl rollout status deployment/${COMPONENT} -n ${PROJECT} --timeout=120s || echo FAILED",
-                                returnStdout: true
-                            ).trim()
-                            if (rollbackStatus.contains("successfully rolled out")) {
-                                error "Deployment Failed, Rollback success."
-                            }
-                            else{
-                                error "Deployment Failed, Rollback Failed. Emergency"
-                            }
-                        }
+                    echo "Run Integration test cases"
+                }
+            }
+        }
+        stage('PROD Deploy') {
+            when{
+                expression { params.deploy_to = "prod" }
+            }
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        sh """
+                            echo "get cr number"
+                            echo "check with in the deployment window"
+                            echo "is CR approved"
+                            echo "trigger PROD deploy"
+                        """
                     }
                 }
             }
