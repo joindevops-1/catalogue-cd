@@ -19,24 +19,6 @@ pipeline {
     }
     // Build
     stages {
-
-        stage('PROD Deploy') {
-            when{
-                expression { params.deploy_to = "prod" }
-            }
-            steps {
-                script {
-                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
-                        sh """
-                            echo "get cr number"
-                            echo "check with in the deployment window"
-                            echo "is CR approved"
-                            echo "trigger PROD deploy"
-                        """
-                    }
-                }
-            }
-        }
         
         stage('Deploy') {
             steps {
@@ -102,7 +84,23 @@ pipeline {
                 }
             }
         }
-        
+        stage('PROD Deploy') {
+            when{
+                expression { params.deploy_to = "prod" }
+            }
+            steps {
+                script {
+                    withAWS(credentials: 'aws-creds', region: 'us-east-1') {
+                        sh """
+                            echo "get cr number"
+                            echo "check with in the deployment window"
+                            echo "is CR approved"
+                            echo "trigger PROD deploy"
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post { 
