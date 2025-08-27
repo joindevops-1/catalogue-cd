@@ -16,7 +16,7 @@ spec:
     helm:
       releaseName: backend
       valueFiles:
-      - values.yaml
+      - values-dev.yaml
   destination:
     server: https://kubernetes.default.svc
     namespace: argocd
